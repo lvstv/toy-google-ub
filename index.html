@@ -172,9 +172,9 @@ CTL.forEach(c => {
   });
 });
 const rb = document.createElement("div"); rb.className = "ctl";
-rb.innerHTML = `<button id="rs">Другой случайный шум</button><p class="hint">Клики случайны. Нажмите несколько раз: устойчивый вывод не должен зависеть от шума.</p>`;
+rb.innerHTML = `<button id="rs">Другой случайный шум</button> <span id="sn" class="hint">шум №1</span><p class="hint">Клики случайны. При большом трафике шум мал, линии меняются на 1–2 позиции в отдельные недели. Уменьшите «поисков в неделю» до 200–600, чтобы увидеть разброс. Устойчивый вывод не должен зависеть от шума.</p>`;
 panel.appendChild(rb);
-rb.querySelector("#rs").onclick = () => { P.seed = (P.seed * 7 + 3) % 9973; run(); };
+let sn = 1; rb.querySelector("#rs").onclick = () => { P.seed = (P.seed * 7 + 3) % 9973; sn++; document.getElementById("sn").textContent = "шум №" + sn; run(); };
 
 /* ===== 3. ГЕНЕРАТОР СЛУЧАЙНЫХ ЧИСЕЛ (фиксированный seed, чтобы две симуляции были сравнимы) ===== */
 function rng(s){return()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
