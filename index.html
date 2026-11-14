@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Симулятор кликового сигнала: честные клики и накрутка</title>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f4f6f7;--card:#fff;--ink:#1b2a33;--mute:#5b6b75;--line:#d5dde1;--h:#0f7b6c;--m:#b5348b;--g:#8a979f;
+ --fact:#0f7b6c;--prob:#2a6fb0;--hyp:#a5600a;--ass:#6b6f78;
+ box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#11191e;--card:#18232a;--ink:#e6edf0;--mute:#9aaab4;--line:#2c3b44;--h:#3fc1ad;--m:#e56fc1;--g:#7d8b94;--fact:#3fc1ad;--prob:#6fb0ee;--hyp:#e6a64f;--ass:#9a9fa8}}
+:root[data-theme="dark"]{--bg:#11191e;--card:#18232a;--ink:#e6edf0;--mute:#9aaab4;--line:#2c3b44;--h:#3fc1ad;--m:#e56fc1;--g:#7d8b94;--fact:#3fc1ad;--prob:#6fb0ee;--hyp:#e6a64f;--ass:#9a9fa8}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Public Sans",system-ui,sans-serif}
+main{max-width:1100px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:26px;line-height:1.2;margin:0 0 8px}
+h2{font-size:18px;margin:0 0 8px}
+p{margin:0 0 10px;max-width:72ch}
+.note{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--hyp);padding:12px 14px;border-radius:6px;margin:14px 0}
+.grid{display:grid;grid-template-columns:340px 1fr;gap:16px;align-items:start}
+@media(max-width:820px){.grid{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px}
+.ctl{padding:9px 0;border-top:1px solid var(--line)}
+.ctl:first-of-type{border-top:0}
+.ctl label{display:flex;justify-content:space-between;gap:8px;font-weight:600;font-size:14px}
+.ctl output{font-weight:400;color:var(--mute);white-space:nowrap}
+.ctl input[type=range]{width:100%}
+.ctl select{width:100%;padding:6px;font:inherit;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:4px}
+.hint{font-size:13px;color:var(--mute);margin:2px 0 0}
+.tag{display:inline-block;font-size:12px;font-weight:600;border:1px solid currentColor;border-radius:10px;padding:0 7px;margin-right:6px}
+.t-fact{color:var(--fact)}.t-prob{color:var(--prob)}.t-hyp{color:var(--hyp)}.t-ass{color:var(--ass)}
+svg{width:100%;height:auto;display:block;overflow:visible}
+svg text{fill:var(--mute);font-size:11px;font-family:inherit}
+.leg{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;margin:6px 0 2px}
+.leg i{display:inline-block;width:22px;height:0;border-top:3px solid;vertical-align:middle;margin-right:5px}
+.res{font-size:15px}.res b{color:var(--ink)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+td,th{border-top:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+button{font:inherit;padding:6px 12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:4px;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--prob);outline-offset:2px}
+ul{margin:0 0 10px;padding-left:20px;max-width:72ch}
+</style>
+</head>
+<body>
+<main>
+<h1>Симулятор кликового сигнала: что переживёт время, честные клики или накрутка</h1>
+<p>Игрушечная модель одного запроса и восьми сайтов. Она показывает логику рассуждений, а не реальное устройство Google: все константы здесь допущения.</p>
+
+<div class="note">
+<h2>Как читать страницу</h2>
+<ul>
+<li><b>Что считается.</b> Каждую неделю сайты ранжируются по формуле: итог = базовая релевантность × (кликовый сигнал сайта ÷ средний сигнал)<sup>β</sup>. Люди кликают по позициям с учётом смещения (верхние замечают чаще). Клики накапливаются в «памяти», которая и решает судьбу сигнала.</li>
+<li><b>Что сравниваем.</b> «Честный сайт» (хорошее качество, без накрутки) и «Накрученный сайт» (слабое качество, плюс купленные клики). Пунктир показывает, где был бы накрученный сайт без накрутки, поэтому разница между линиями и есть чистый эффект накрутки.</li>
+<li><b>Метки у параметров.</b>
+ <span class="tag t-fact">подтверждено</span>известно из суда,
+ <span class="tag t-prob">вероятно</span>стандарт научной практики,
+ <span class="tag t-hyp">гипотеза</span>предмет спора,
+ <span class="tag t-ass">допущение</span>просто значение для игры.</li>
+</ul>
+</div>
+
+<div class="grid">
+<section class="card" id="panel" aria-label="Параметры"></section>
+<section>
+ <div class="card">
+  <h2>Позиция в выдаче (1 — верх)</h2>
+  <div class="leg"><span><i style="color:var(--h)"></i>Честный сайт</span><span><i style="color:var(--m)"></i>Накрученный сайт</span><span><i style="color:var(--g);border-top-style:dashed"></i>Накрученный без накрутки</span><span>Серая полоса: период накрутки</span></div>
+  <svg id="c1" viewBox="0 0 640 250" role="img" aria-label="График позиций по неделям"></svg>
+ </div>
+ <div class="card" style="margin-top:14px">
+  <h2>Кликовый сигнал относительно среднего</h2>
+  <p class="hint">Единица значит «средний сайт». Выше единицы сигнал усиливает позицию, ниже ослабляет. Это то, что «помнит» система.</p>
+  <svg id="c2" viewBox="0 0 640 170" role="img" aria-label="График кликового сигнала"></svg>
+ </div>
+ <div class="card res" style="margin-top:14px" id="out" aria-live="polite"></div>
+</section>
+</div>
+
+<div class="card" style="margin-top:16px">
+<h2>Три гипотезы о памяти сигнала и что каждая предсказывает</h2>
+<table>
+<tr><th>Гипотеза</th><th>Как устроена память</th><th>Что увидим после остановки накрутки</th></tr>
+<tr><td>H1, чистое окно</td><td>Все клики окна весят одинаково, старше окна забываются.</td><td>Эффект медленно слабеет и пропадает только через длину окна (13 месяцев по суду).</td></tr>
+<tr><td>H2, затухание по давности</td><td>Свежие клики весят больше, вес падает вдвое за период полураспада.</td><td>Эффект уходит экспоненциально, за недели или месяцы.</td></tr>
+<tr><td>H3, фильтр аномалий</td><td>Всплески обрезаются относительно обычного уровня, часть накрученных кликов распознаётся и отбрасывается.</td><td>Короткий всплеск почти бесследен. Но постоянная накрутка обрезку обходит: её уровень становится «обычным».</td></tr>
+</table>
+<p style="margin-top:10px">Как проверять на живых данных: заранее записать, какая гипотеза что предсказывает, фиксировать позицию по датам для запроса с накруткой и для похожего запроса без неё, затем сравнить форму кривой после остановки.</p>
+<h2 style="margin-top:14px">Что здесь упрощено</h2>
+<ul>
+<li>Один запрос, 8 сайтов, ранжирование по трём числам на сайт: база, привлекательность сниппета, качество (доля довольных кликов). Реальный Google использует сотни сигналов.</li>
+<li>Накрутка добавляет «хорошие» клики только накрученному сайту, как будто боты почти неотличимы от людей (параметр имитации).</li>
+<li>Нет байесовского сглаживания малых выборок и нет отдельных срезов по странам и устройствам.</li>
+<li>Выдача после каждой недели пересчитывается заново, а смещение позиций корректируется делением кликов на ожидаемый просмотр. Выключите галочку и увидите, как «сырой» CTR раскручивает лидера сам по себе.</li>
+</ul>
+</div>
+<div class="card" style="margin-top:16px" id="sheet">
+<h2>Шпаргалка: три механизма, на которых стоит модель</h2>
+<p>Короткие объяснения для себя и для собеседования. Двигайте ползунки и смотрите, что меняется.</p>
+<h2 style="margin-top:14px">1. BM25: насыщение частоты слова</h2>
+<p>Вклад слова = f·(k₁+1) / (f + k₁·(1 − b + b·L)), где f это число упоминаний слова, а L длина документа к средней длине. Чем больше f, тем ближе вклад к потолку k₁+1: десятое упоминание почти ничего не добавляет. Параметр b решает, насколько штрафовать длинные документы.</p>
+<div id="s1c"></div>
+<svg id="s1" viewBox="0 0 640 160" role="img" aria-label="Вклад слова в BM25 от числа упоминаний"></svg>
+<p class="hint">Зелёная линия: вклад слова при f от 0 до 20. Серый пунктир: потолок k₁+1.</p>
+<h2 style="margin-top:14px">2. PageRank: куда стекает вес</h2>
+<p>PR(p) = (1−d)/N + d·Σ PR(q)/L(q), где L(q) число исходящих ссылок страницы q. Модель «случайного сёрфера»: с вероятностью d идёт по случайной ссылке, с вероятностью 1−d прыгает на случайную страницу. Тестовый граф: A→B, A→C, B→C, C→A, D→C.</p>
+<div id="s2c"></div>
+<div id="s2o" class="res"></div>
+<p class="hint">При d=0 все страницы равны. Чем ближе d к 1, тем сильнее вес стекается к C, на которую ведут все.</p>
+<h2 style="margin-top:14px">3. Смещение CTR по позиции</h2>
+<p>Верхние результаты замечают чаще, поэтому клики делят на ожидаемую долю просмотров позиции: привлекательность = CTR / доля просмотров. На практике кривые ожидания строят отдельно для разных типов запросов. Здесь одна кривая 1/k<sup>0,8</sup>, как в симуляторе.</p>
+<div id="s3c"></div>
+<div id="s3o" class="res"></div>
+<p class="hint">Попробуйте позицию 5 с 10 кликами и позицию 1 с 25: сырой CTR выше у второго, а привлекательнее первый.</p>
+</div>
+</main>
+
+<script>
+/* ===== 1. ДАННЫЕ МОДЕЛИ ===== */
+const T = 104;        // длина симуляции, недель (2 года)
+const GAMMA = 0.8;    // смещение позиции: вероятность заметить результат на месте k = 1 / k^GAMMA
+const e = k => 1 / Math.pow(k, GAMMA);
+// b: базовая релевантность (текст, ссылки), a: привлекательность сниппета, q: доля довольных кликов
+const DOCS = [
+  {n:"Честный сайт",b:.80,a:.55,q:.80},   // индекс 0, параметр q меняется ползунком
+  {n:"Накрученный сайт",b:.70,a:.55,q:.35},// индекс 1, параметр q меняется ползунком
+  {n:"Конкурент 1",b:.90,a:.50,q:.60},{n:"Конкурент 2",b:.85,a:.50,q:.55},
+  {n:"Конкурент 3",b:.78,a:.45,q:.50},{n:"Конкурент 4",b:.72,a:.50,q:.50},
+  {n:"Конкурент 5",b:.66,a:.40,q:.45},{n:"Конкурент 6",b:.60,a:.40,q:.40}
+];
+
+/* ===== 2. ПАРАМЕТРЫ ИНТЕРФЕЙСА: id, подпись, диапазон, метка, пояснение ===== */
+const CTL = [
+ {id:"mode",l:"Гипотеза о памяти",sel:[["h1","H1, чистое окно"],["h2","H2, затухание по давности"],["h3","H3, фильтр аномалий"]],v:"h1",t:"hyp",h:"Главный переключатель спора: как система забывает или режет клики."},
+ {id:"W",l:"Окно, недель",min:8,max:104,s:4,v:56,t:"fact",h:"13 месяцев примерно равны 56 неделям (показания Нандака в суде)."},
+ {id:"half",l:"Полураспад (только H2), недель",min:2,max:52,s:2,v:12,t:"hyp",h:"За это время вес клика падает вдвое."},
+ {id:"detect",l:"Доля распознанных накруток (H3)",min:0,max:1,s:.05,v:.7,t:"hyp",h:"Какую долю накрученных кликов система отбрасывает как подозрительные."},
+ {id:"clip",l:"Порог всплеска (H3), × от обычного",min:1,max:5,s:.25,v:2,t:"hyp",h:"Недельная доля кликов выше этого множителя обрезается до него."},
+ {id:"beta",l:"Вес кликового слоя β",min:0,max:1.5,s:.1,v:.6,t:"ass",h:"0: клики не влияют на выдачу. 1: влияют пропорционально."},
+ {id:"V",l:"Поисков в неделю",min:200,max:20000,s:200,v:2000,t:"ass",h:"Мало трафика: больше шума и возможностей для накрутки. Много: накрутка тонет."},
+ {id:"qH",l:"Качество честного сайта",min:.1,max:1,s:.05,v:.8,t:"ass",h:"Доля посетителей, которым сайт помог."},
+ {id:"qM",l:"Качество накрученного сайта",min:.1,max:1,s:.05,v:.35,t:"ass",h:"То же для сайта, который поддерживается накруткой."},
+ {id:"ips",l:"Поправка на смещение позиции",chk:1,v:true,t:"prob",h:"Клики делятся на ожидаемые просмотры. Без неё лидер растёт просто потому, что он наверху."},
+ {id:"fm",l:"Режим накрутки",sel:[["none","нет"],["burst","всплеск"],["steady","постоянно"]],v:"burst",t:"ass",h:"Всплеск: короткая кампания. Постоянно: платим всё время."},
+ {id:"f",l:"Накрученных кликов в неделю",min:0,max:2000,s:50,v:800,t:"ass",h:"Сравните с трафиком: 800 из 2000 очень заметная доля."},
+ {id:"start",l:"Старт накрутки, неделя",min:1,max:80,s:1,v:20,t:"ass",h:""},
+ {id:"len",l:"Длина всплеска, недель",min:1,max:30,s:1,v:8,t:"ass",h:"Для режима «всплеск»."},
+ {id:"mimic",l:"Доля «довольных» накрученных кликов",min:0,max:1,s:.05,v:.6,t:"hyp",h:"Насколько хорошо боты имитируют долгий просмотр и отсутствие возврата в выдачу."}
+];
+const TAG = {fact:"подтверждено",prob:"вероятно",hyp:"гипотеза",ass:"допущение"};
+const P = {seed:7};
+const panel = document.getElementById("panel");
+CTL.forEach(c => {
+  P[c.id] = c.v;
+  const d = document.createElement("div"); d.className = "ctl";
+  let inp;
+  if (c.sel) inp = `<select id="${c.id}">${c.sel.map(o=>`<option value="${o[0]}"${o[0]===c.v?" selected":""}>${o[1]}</option>`).join("")}</select>`;
+  else if (c.chk) inp = `<input type="checkbox" id="${c.id}" checked>`;
+  else inp = `<input type="range" id="${c.id}" min="${c.min}" max="${c.max}" step="${c.s}" value="${c.v}">`;
+  d.innerHTML = `<label for="${c.id}"><span>${c.l}</span><output id="o_${c.id}"></output></label>${inp}<p class="hint"><span class="tag t-${c.t}">${TAG[c.t]}</span>${c.h}</p>`;
+  panel.appendChild(d);
+  d.querySelector("#"+c.id).addEventListener("input", ev => {
+    const x = ev.target; P[c.id] = c.chk ? x.checked : c.sel ? x.value : +x.value; run();
+  });
+});
+const rb = document.createElement("div"); rb.className = "ctl";
+rb.innerHTML = `<button id="rs">Другой случайный шум</button><p class="hint">Клики случайны. Нажмите несколько раз: устойчивый вывод не должен зависеть от шума.</p>`;
+panel.appendChild(rb);
+rb.querySelector("#rs").onclick = () => { P.seed = (P.seed * 7 + 3) % 9973; run(); };
+
+/* ===== 3. ГЕНЕРАТОР СЛУЧАЙНЫХ ЧИСЕЛ (фиксированный seed, чтобы две симуляции были сравнимы) ===== */
+function rng(s){return()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function gauss(r){return Math.sqrt(-2*Math.log(r()+1e-12))*Math.cos(2*Math.PI*r())}
+
+/* ===== 4. НАКРУТКА: сколько клик-заказов куплено на неделе t ===== */
+function fakeAt(t){
+  if (P.fm==="burst") return (t>=P.start && t<P.start+P.len) ? P.f : 0;
+  if (P.fm==="steady") return t>=P.start ? P.f : 0;
+  return 0;
+}
+
+/* ===== 5. КЛИКОВЫЙ СИГНАЛ = «память» системы. Здесь живут гипотезы H1/H2/H3 ===== */
+function signal(g, m, f, t){
+  const raw = [];
+  for (let i=0;i<DOCS.length;i++){
+    const lo = Math.max(0, t-P.W), rate = [];
+    for (let u=lo;u<t;u++){
+      // хорошие клики недели: настоящие + накрученные (в H3 часть накрученных отброшена)
+      const keep = P.mode==="h3" ? 1-P.detect : 1;
+      rate.push((g[i][u] + f[i][u]*keep) / m[i][u]);
+    }
+    let med = 0;
+    if (P.mode==="h3" && rate.length){ const s=[...rate].sort((a,b)=>a-b); med=s[s.length>>1]; }
+    let num=0, den=0;
+    rate.forEach((r,j)=>{
+      const u = lo+j;
+      const w = P.mode==="h2" ? Math.pow(.5,(t-1-u)/P.half) : 1; // H2: вес по давности
+      if (P.mode==="h3") r = Math.min(r, P.clip*med);            // H3: обрезка всплеска
+      num += w*r*m[i][u]; den += w*m[i][u];
+    });
+    raw.push(den ? num/den : 0);
+  }
+  return raw;
+}
+
+/* ===== 6. ОДНА СИМУЛЯЦИЯ: fake=true с накруткой, false без неё ===== */
+function sim(fake){
+  const R = rng(P.seed), N = DOCS.length;
+  const q = DOCS.map((d,i)=> i===0?P.qH : i===1?P.qM : d.q);
+  const g=[],m=[],f=[],pos=[],bo=[];
+  for (let i=0;i<N;i++){g.push([]);m.push([]);f.push([]);pos.push([]);bo.push([]);}
+  for (let t=0;t<T;t++){
+    // 1) по данным прошлых недель считаем сигнал и ранжируем
+    const sig = t===0 ? DOCS.map(()=>1) : signal(g,m,f,t);
+    const mean = sig.reduce((a,b)=>a+b)/N || 1;
+    const sc = DOCS.map((d,i)=> d.b * Math.pow((sig[i]/mean)||0, P.beta));
+    const order = [...sc.keys()].sort((x,y)=>sc[y]-sc[x]);
+    // 2) на этой выдаче люди кликают, накрутка добавляет клики
+    order.forEach((i,k)=>{
+      pos[i][t]=k+1; bo[i][t]=(sig[i]/mean)||0;
+      const ex = e(k+1), mu = P.V*ex*DOCS[i].a;                  // ожидаемые клики
+      const c = Math.max(0, mu + Math.sqrt(mu)*gauss(R));         // с шумом
+      g[i][t] = c*q[i];                                           // довольные клики
+      f[i][t] = (i===1 && fake) ? fakeAt(t)*P.mimic : 0;          // довольные накрученные
+      m[i][t] = P.ips ? P.V*ex : P.V;                             // «сколько могли увидеть»
+    });
+  }
+  return {pos, bo};
+}
+
+/* ===== 7. РИСОВАНИЕ ГРАФИКОВ (чистый SVG) ===== */
+function draw(svg, series, o){
+  const W=640, Hh=o.h, L=34, Rr=8, Tp=8, B=22, x=t=>L+(W-L-Rr)*t/(T-1);
+  const y=v=>Tp+(Hh-Tp-B)*(o.inv?(v-o.lo)/(o.hi-o.lo):1-(v-o.lo)/(o.hi-o.lo));
+  let s="";
+  if (o.shade) s+=`<rect x="${x(o.shade[0])}" y="${Tp}" width="${Math.max(2,x(o.shade[1])-x(o.shade[0]))}" height="${Hh-Tp-B}" fill="var(--g)" opacity=".18"/>`;
+  o.ticks.forEach(v=>{s+=`<line x1="${L}" x2="${W-Rr}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${L-6}" y="${y(v)+4}" text-anchor="end">${v}</text>`});
+  for(let t=0;t<T;t+=13){s+=`<text x="${x(t)}" y="${Hh-6}" text-anchor="middle">${t}</text>`}
+  s+=`<text x="${W-Rr}" y="${Hh-6}" text-anchor="end">недели</text>`;
+  series.forEach(se=>{
+    const d=se.d.map((v,t)=>`${t?"L":"M"}${x(t).toFixed(1)},${y(Math.min(o.hi,Math.max(o.lo,v))).toFixed(1)}`).join("");
+    s+=`<path d="${d}" fill="none" stroke="${se.c}" stroke-width="2.2"${se.dash?' stroke-dasharray="5 4"':""}/>`;
+  });
+  svg.innerHTML=s;
+}
+
+/* ===== 8. ЗАПУСК И ВЫВОДЫ ===== */
+function run(){
+  CTL.forEach(c=>{const o=document.getElementById("o_"+c.id); if(o) o.textContent=c.sel||c.chk?"":P[c.id];});
+  document.getElementById("half").disabled = P.mode!=="h2";
+  ["detect","clip"].forEach(id=>document.getElementById(id).disabled = P.mode!=="h3");
+  const A = sim(true), Bn = sim(false);
+  const stop = P.fm==="burst" ? P.start+P.len : P.fm==="steady" ? T : P.start;
+  draw(document.getElementById("c1"),[
+    {d:Bn.pos[1],c:"var(--g)",dash:1},{d:A.pos[0],c:"var(--h)"},{d:A.pos[1],c:"var(--m)"}],
+    {h:250,lo:1,hi:8,inv:1,ticks:[1,2,3,4,5,6,7,8],shade:P.fm==="none"?null:[P.start,Math.min(stop,T-1)]});
+  draw(document.getElementById("c2"),[
+    {d:A.bo[0],c:"var(--h)"},{d:A.bo[1],c:"var(--m)"},{d:A.bo.map(()=>1),c:"var(--g)",dash:1}],
+    {h:170,lo:0,hi:3,ticks:[0,1,2,3],shade:P.fm==="none"?null:[P.start,Math.min(stop,T-1)]});
+  const diff = A.pos[1].map((p,t)=>Bn.pos[1][t]-p);        // сколько мест дала накрутка
+  const best = Math.min(...A.pos[1]), top3 = A.pos[1].filter(p=>p<=3).length, top3n = Bn.pos[1].filter(p=>p<=3).length;
+  let tail = 0; if (P.fm==="burst"){ for(let t=stop;t<T;t++){ if(diff[t]>=1) tail=t-stop+1; else if(tail) break; } }
+  const gain = diff.filter(d=>d>=1).length;
+  const lastGain = diff.lastIndexOf(Math.max(...diff));
+  let h = `<p><b>Лучшая позиция накрученного сайта:</b> ${best}. <b>Недель в топ-3:</b> ${top3} с накруткой против ${top3n} без неё.</p>`;
+  h += `<p><b>Недель, когда накрутка давала выигрыш минимум в 1 место:</b> ${gain} из ${T}.</p>`;
+  if (P.fm==="burst") h += `<p><b>Выигрыш после остановки накрутки (неделя ${stop}):</b> ${tail?`держался ещё ${tail} нед.`:"сразу исчез или не успел появиться"}.</p>`;
+  h += `<p><b>Честный сайт:</b> позиция ${A.pos[0][T-1]} на последней неделе, лучшая за период ${Math.min(...A.pos[0])}.</p>`;
+  h += `<p class="hint">Цифры описывают игрушку при выбранных допущениях. Смысл в форме кривых: сравните, как они меняются от гипотезы к гипотезе.</p>`;
+  document.getElementById("out").innerHTML = h;
+}
+run();
+
+/* ===== ШПАРГАЛКА: три мини-демо ===== */
+function mk(host,id,l,min,max,s,v){const d=document.createElement("div");d.className="ctl";
+  d.innerHTML=`<label for="${id}"><span>${l}</span><output id="o_${id}">${v}</output></label><input type="range" id="${id}" min="${min}" max="${max}" step="${s}" value="${v}">`;
+  document.getElementById(host).appendChild(d);
+  d.querySelector("input").addEventListener("input",ev=>{document.getElementById("o_"+id).textContent=ev.target.value;sheet();});}
+mk("s1c","k1","k₁, потолок насыщения",.2,3,.1,1.2);mk("s1c","bb","b, штраф за длину",0,1,.05,.75);mk("s1c","LL","L, длина документа к средней",.3,3,.1,1);
+mk("s2c","dd","d, вероятность идти по ссылке",0,.99,.01,.85);
+mk("s3c","kk","Позиция результата",1,8,1,5);mk("s3c","cc","Кликов на 100 показов",0,60,1,10);
+const val=id=>+document.getElementById(id).value;
+// простой график для шпаргалки: n точек по оси x, верхняя граница hi
+function drawS(id,series,hi,ticks,n){const W=640,H=160,Lm=34,x=i=>Lm+(W-Lm-8)*i/n,y=v=>8+(H-30)*(1-v/hi);
+  let s=ticks.map(v=>`<line x1="${Lm}" x2="${W-8}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${Lm-6}" y="${y(v)+4}" text-anchor="end">${v}</text>`).join("");
+  for(let i=0;i<=n;i+=5)s+=`<text x="${x(i)}" y="${H-6}" text-anchor="middle">${i}</text>`;
+  series.forEach(se=>{const p=se.d.map((v,i)=>(i?"L":"M")+x(i).toFixed(1)+","+y(Math.min(hi,v)).toFixed(1)).join("");
+    s+=`<path d="${p}" fill="none" stroke="${se.c}" stroke-width="2.2"${se.dash?' stroke-dasharray="5 4"':""}/>`;});
+  document.getElementById(id).innerHTML=s;}
+function sheet(){
+  // 1) BM25: вклад слова от числа упоминаний f
+  const k=val("k1"),b=val("bb"),L=val("LL"),pts=[],cap=[];
+  for(let f=0;f<=20;f++){pts.push(f*(k+1)/(f+k*(1-b+b*L)));cap.push(k+1);}
+  drawS("s1",[{d:cap,c:"var(--g)",dash:1},{d:pts,c:"var(--h)"}],4,[0,1,2,3,4],20);
+  // 2) PageRank: степенные итерации на графе из 4 страниц
+  const d=val("dd"),out={0:[1,2],1:[2],2:[0],3:[2]};let pr=[.25,.25,.25,.25];
+  for(let it=0;it<60;it++){const nx=Array(4).fill((1-d)/4);for(const q in out)out[q].forEach(p=>nx[p]+=d*pr[q]/out[q].length);pr=nx;}
+  document.getElementById("s2o").innerHTML=["A","B","C","D"].map((n,i)=>`<div>${n}: ${pr[i].toFixed(3)} <span style="display:inline-block;height:10px;width:${Math.round(pr[i]*300)}px;background:var(--h)"></span></div>`).join("");
+  // 3) поправка CTR на позицию
+  const kp=val("kk"),ctr=val("cc")/100,ek=e(kp);
+  document.getElementById("s3o").innerHTML=`Ожидаемая доля просмотров на позиции ${kp}: <b>${ek.toFixed(2)}</b> (на первой 1,00). Сырой CTR: <b>${Math.round(ctr*100)}%</b>. Поправленная привлекательность: <b>${Math.round(ctr/ek*100)}%</b>.`;
+}
+sheet();
+</script>
+</body>
+</html>

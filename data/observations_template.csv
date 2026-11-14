@@ -1,0 +1,3 @@
+project_id,week,query_group,query_type,position,top10_share,event,notes
+EXAMPLE_A,0,group1,commercial,7,0.35,,"пример строки, замените своими данными"
+EXAMPLE_A,12,group1,commercial,3,0.60,manipulation_start,"пример строки"
