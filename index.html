@@ -66,7 +66,7 @@ ul{margin:0 0 10px;padding-left:20px;max-width:72ch}
 <section>
  <div class="card">
   <h2>Позиция в выдаче (1 — верх)</h2>
-  <div class="leg"><span><i style="color:var(--h)"></i>Честный сайт</span><span><i style="color:var(--m)"></i>Накрученный сайт</span><span><i style="color:var(--g);border-top-style:dashed"></i>Накрученный без накрутки</span><span>Серая полоса: период накрутки</span><span>Тонкий пунктир: граница топ-10</span></div>
+  <div class="leg"><span><i style="color:var(--h)"></i>Честный сайт</span><span><i style="color:var(--m)"></i>Накрученный сайт</span><span><i style="color:var(--g);border-top-style:dashed"></i>Накрученный без накрутки</span><span>Серая полоса: период накрутки</span><span>Тонкий пунктир: граница топ-10</span><span>Линии: медиана 20 запусков, полосы: разброс 10–90%</span></div>
   <svg id="c1" viewBox="0 0 640 250" role="img" aria-label="График позиций по неделям"></svg>
  </div>
  <div class="card" style="margin-top:14px">
@@ -168,11 +168,11 @@ CTL.forEach(c => {
   d.innerHTML = `<label for="${c.id}"><span>${c.l}</span><output id="o_${c.id}"></output></label>${inp}<p class="hint"><span class="tag t-${c.t}">${TAG[c.t]}</span>${c.h}</p>`;
   panel.appendChild(d);
   d.querySelector("#"+c.id).addEventListener("input", ev => {
-    const x = ev.target; P[c.id] = c.chk ? x.checked : c.sel ? x.value : +x.value; run();
+    const x = ev.target; P[c.id] = c.chk ? x.checked : c.sel ? x.value : +x.value; clearTimeout(window._rt); window._rt = setTimeout(run, 150);
   });
 });
 const rb = document.createElement("div"); rb.className = "ctl";
-rb.innerHTML = `<button id="rs">Другой случайный шум</button> <span id="sn" class="hint">шум №1</span><p class="hint">Клики случайны. При большом трафике шум мал, линии меняются на 1–2 позиции в отдельные недели. Уменьшите «поисков в неделю» до 200–600, чтобы увидеть разброс. Устойчивый вывод не должен зависеть от шума.</p>`;
+rb.innerHTML = `<button id="rs">Другой случайный шум</button> <span id="sn" class="hint">шум №1</span><p class="hint">Клики случайны, поэтому показана медиана 20 запусков с разным шумом, а полоса даёт разброс. Кнопка берёт другой набор из 20 запусков: устойчивый вывод при этом не должен меняться. При малом трафике (200–600 поисков) полосы заметно шире.</p>`;
 panel.appendChild(rb);
 let sn = 1; rb.querySelector("#rs").onclick = () => { P.seed = (P.seed * 7 + 3) % 9973; sn++; document.getElementById("sn").textContent = "шум №" + sn; run(); };
 
@@ -212,8 +212,8 @@ function signal(g, m, f, t){
 }
 
 /* ===== 6. ОДНА СИМУЛЯЦИЯ: fake=true с накруткой, false без неё ===== */
-function sim(fake){
-  const R = rng(P.seed), N = DOCS.length;
+function sim(fake, seed){
+  const R = rng(seed===undefined?P.seed:seed), N = DOCS.length;
   const q = DOCS.map((d,i)=> i===0?P.qH : i===1?P.qM : d.q);
   const sd = 0.3/Math.sqrt(P.D);                         // внешний слой: оценка качества с шумом, который убывает с D
   const ext = q.map(v=>Math.max(.05, v + sd*gauss(R)));
@@ -245,6 +245,7 @@ function draw(svg, series, o){
   const y=v=>Tp+(Hh-Tp-B)*(o.inv?(v-o.lo)/(o.hi-o.lo):1-(v-o.lo)/(o.hi-o.lo));
   let s="";
   if (o.shade) s+=`<rect x="${x(o.shade[0])}" y="${Tp}" width="${Math.max(2,x(o.shade[1])-x(o.shade[0]))}" height="${Hh-Tp-B}" fill="var(--g)" opacity=".18"/>`;
+  (o.bands||[]).forEach(b=>{const f=v=>y(Math.min(o.hi,Math.max(o.lo,v))).toFixed(1),up=b.hi.map((v,t)=>x(t).toFixed(1)+","+f(v)),dn=b.lo.map((v,t)=>x(t).toFixed(1)+","+f(v)).reverse();s+=`<polygon points="${up.concat(dn).join(" ")}" fill="${b.c}" opacity=".16"/>`;});  // полоса разброса между запусками
   o.ticks.forEach(v=>{s+=`<line x1="${L}" x2="${W-Rr}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${L-6}" y="${y(v)+4}" text-anchor="end">${v}</text>`});
   for(let t=0;t<T;t+=13){s+=`<text x="${x(t)}" y="${Hh-6}" text-anchor="middle">${t}</text>`}
   s+=`<text x="${W-Rr}" y="${Hh-6}" text-anchor="end">недели</text>`;
@@ -260,14 +261,21 @@ function run(){
   CTL.forEach(c=>{const o=document.getElementById("o_"+c.id); if(o) o.textContent=c.sel||c.chk?"":P[c.id];});
   document.getElementById("half").disabled = P.mode!=="h2";
   ["detect","clip"].forEach(id=>document.getElementById(id).disabled = P.mode!=="h3");
-  const A = sim(true), Bn = sim(false);
+  // 20 запусков с разным шумом: показываем медиану (линия) и разброс 10–90% (полоса)
+  const NR=20,rA=[],rB=[];
+  for(let k=0;k<NR;k++){const s=(P.seed+k*977)%9973+1;rA.push(sim(true,s));rB.push(sim(false,s));}
+  const band=(rs,get)=>{const m=[],lo=[],hi=[];for(let t=0;t<T;t++){const v=rs.map(r=>get(r,t)).sort((a,b)=>a-b);m.push(v[v.length>>1]);lo.push(v[Math.floor(v.length*.1)]);hi.push(v[Math.floor(v.length*.9)]);}return{m,lo,hi};};
+  const HB=band(rA,(r,t)=>r.pos[0][t]), MB=band(rA,(r,t)=>r.pos[1][t]), NB=band(rB,(r,t)=>r.pos[1][t]);
+  const HO=band(rA,(r,t)=>r.bo[0][t]), MO=band(rA,(r,t)=>r.bo[1][t]);
+  const A={pos:[HB.m,MB.m],bo:[HO.m,MO.m]}, Bn={pos:[null,NB.m]};
+  const inTop=rs=>Math.round(100*rs.filter(r=>r.pos[1][T-1]<=10).length/rs.length);
   const stop = P.fm==="burst" ? P.start+P.len : P.fm==="steady" ? T : P.start;
   draw(document.getElementById("c1"),[
     {d:Bn.pos[1],c:"var(--g)",dash:1},{d:A.pos[0],c:"var(--h)"},{d:A.pos[1],c:"var(--m)"},{d:A.pos[0].map(()=>10),c:"var(--line)",dash:1}],
-    {h:250,lo:1,hi:30,inv:1,ticks:[1,5,10,20,30],shade:P.fm==="none"?null:[P.start,Math.min(stop,T-1)]});
+    {h:250,lo:1,hi:30,inv:1,ticks:[1,5,10,20,30],bands:[{c:"var(--h)",lo:HB.lo,hi:HB.hi},{c:"var(--m)",lo:MB.lo,hi:MB.hi}],shade:P.fm==="none"?null:[P.start,Math.min(stop,T-1)]});
   draw(document.getElementById("c2"),[
     {d:A.bo[0],c:"var(--h)"},{d:A.bo[1],c:"var(--m)"},{d:A.bo.map(()=>1),c:"var(--g)",dash:1}],
-    {h:170,lo:0,hi:3,ticks:[0,1,2,3],shade:P.fm==="none"?null:[P.start,Math.min(stop,T-1)]});
+    {h:170,lo:0,hi:3,ticks:[0,1,2,3],bands:[{c:"var(--h)",lo:HO.lo,hi:HO.hi},{c:"var(--m)",lo:MO.lo,hi:MO.hi}],shade:P.fm==="none"?null:[P.start,Math.min(stop,T-1)]});
   const diff = A.pos[1].map((p,t)=>Bn.pos[1][t]-p);        // сколько мест дала накрутка
   const best = Math.min(...A.pos[1]), top3 = A.pos[1].filter(p=>p<=3).length, top3n = Bn.pos[1].filter(p=>p<=3).length;
   let tail = 0; if (P.fm==="burst"){ for(let t=stop;t<T;t++){ if(diff[t]>=1) tail=t-stop+1; else if(tail) break; } }
@@ -275,7 +283,8 @@ function run(){
   const lastGain = diff.lastIndexOf(Math.max(...diff));
   let h = `<p><b>Лучшая позиция накрученного сайта:</b> ${best}. <b>Недель в топ-3:</b> ${top3} с накруткой против ${top3n} без неё.</p>`;
   h += `<p><b>Недель, когда накрутка давала выигрыш минимум в 1 место:</b> ${gain} из ${T}.</p>`;
-  h += `<p><b>Недель в топ-10 (зона показов):</b> ${A.pos[1].filter(p=>p<=10).length} с накруткой против ${Bn.pos[1].filter(p=>p<=10).length} без неё.</p>`;
+  h += `<p><b>Недель в топ-10 (зона показов):</b> ${A.pos[1].filter(p=>p<=10).length} с накруткой против ${Bn.pos[1].filter(p=>p<=10).length} без неё (по медианной траектории).</p>`;
+  h += `<p><b>Доля запусков, где накрученный сайт в топ-10 на последней неделе:</b> ${inTop(rA)}% с накруткой против ${inTop(rB)}% без неё (из ${NR} запусков с разным шумом).</p>`;
   if (P.fm==="burst") h += `<p><b>Выигрыш после остановки накрутки (неделя ${stop}):</b> ${tail?`держался ещё ${tail} нед.`:"сразу исчез или не успел появиться"}.</p>`;
   h += `<p><b>Честный сайт:</b> позиция ${A.pos[0][T-1]} на последней неделе, лучшая за период ${Math.min(...A.pos[0])}.</p>`;
   h += `<p class="hint">Цифры описывают игрушку при выбранных допущениях. Смысл в форме кривых: сравните, как они меняются от гипотезы к гипотезе.</p>`;
